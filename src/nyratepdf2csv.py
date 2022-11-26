@@ -1,69 +1,64 @@
 import pandas as pd
 import tabula
+class NYRatePDF2CSV(object):
+    def convert_rate(rate):
+        result = rate
+        # eg 81/8 (8 + (1/2))/100 rounded to 5 decimal places
+        if "/" in rate:
+            leading_integer = int(rate[rate.index('/')-2])
+            numerator = int(rate[rate.index('/')-1])
+            denominator = int(rate[rate.index('/')+1])
+            result = round((leading_integer + (numerator/denominator))/100, 5)
+        # for rates already that are already integers
+        elif rate.isnumeric():
+            result = round(int(result)/100, 5)
+        else:
+            result = 0.0
 
-def convert_rate(rate):
-    result = rate
-    # eg 81/8 (8 + (1/2))/100 rounded to 5 decimal places
-    if "/" in rate:
-        leading_integer = int(rate[rate.index('/')-2])
-        numerator = int(rate[rate.index('/')-1])
-        denominator = int(rate[rate.index('/')+1])
-        result = round((leading_integer + (numerator/denominator))/100, 5)
-    # for rates already that are already integers
-    elif rate.isnumeric():
-        result = round(int(result)/100, 5)
-    else:
-        result = 0.0
+        return result
+    
+    def handle_nyc_anomalies(df):
+        nyc = df.loc[df['county'].str.contains('\\*New York City')]
+        print(nyc)
+        df.loc[df.county.str.contains(
+            'New York City'), 'reporting_code'] = '8081'
 
-    return result
+        df.loc[df.county.str.contains(
+            'New York City'), 'rate'] = float(nyc['rate'])
 
-def handle_nyc_anomalies(df):
-    nyc = df.loc[df['county'].str.contains('\\*New York City')]
+        df = df.replace(
+            {'\\*': '', ' – see New York City': '', ' – except': ''}, regex=True).copy()
 
-    df.loc[df.county.str.contains(
-        'New York City'), 'reporting_code'] = '8081'
+        return df
 
-    df.loc[df.county.str.contains(
-        'New York City'), 'rate'] = float(nyc['rate'])
+    def parse_dataframe(df):
+        # rename columns
+        df.columns = ['county', 'reporting_code']
+        # drop first row
+        df = df.drop(index=0, axis=1)
+        # df['rate'] = df['county'].str.slice(start=indx)
+        # add rate column split at first reverse space of first column
+        df['rate'] = df['county'].str.rsplit(
+            ' ', n=1).str[-1]
+        df['county'] = df['county'].str.split(
+            '[0-9]', n=1).str[0]
+        # print('dfcounty',df['county'])
+        # replace different encoded forward slash with regular forward slash
+        df = df.replace({'⁄': '/'}, regex=True).copy()
+        # apply rates
+        df['rate'] = df['rate'].apply(
+            lambda rate: convert_rate(rate))
+        return df
 
-    df = df.replace(
-        {'\\*': '', ' – see New York City': '', ' – except': ''}, regex=True).copy()
-
-    return df
-
-def parse_dataframe(df):
-    # rename columns
-    df.columns = ['county', 'reporting_code']
-    # drop first row
-    df = df.drop(index=0, axis=1)
-    # df['rate'] = df['county'].str.slice(start=indx)
-
-    # add rate column split at first reverse space of first column
-    df['rate'] = df['county'].str.rsplit(
-        ' ', n=1).str[-1]
-
-    df['county'] = df['county'].str.split(
-        '[0-9]', n=1).str[0]
-
-    # print('dfcounty',df['county'])
-    # replace different encoded forward slash with regular forward slash
-    df = df.replace({'⁄': '/'}, regex=True).copy()
-
-    # apply rates
-    df['rate'] = df['rate'].apply(
-        lambda rate: convert_rate(rate))
-
-    return df
-
-def finalize_formatting(df):
-    df['county'] = df['county'].str.strip().copy()
-    df['reporting_code'] = df['reporting_code'].str.strip().copy()
-    return df
+    def finalize_formatting(df):
+        df['county'] = df['county'].str.strip().copy()
+        df['reporting_code'] = df['reporting_code'].str.strip().copy()
+        return df
 
 # tabula extracts tables from PDFs
 df = tabula.read_pdf('docs/core/pub718.pdf', multiple_tables=True, pages='all')
 cols_to_drop = [key for key in df[0].keys() if ("Unnamed" in key)]
-df[0] = df[0].dromovrdp(columns=cols_to_drop)
+df[0] = df[0].drop(columns=cols_to_drop)
 keys = [df[0].keys()[0:2], df[0].keys()[2:4], df[0].keys()[4:6]]
 df000 = [parse_dataframe(df[0][key]) for key in keys]
 df_final = pd.concat(df000)
