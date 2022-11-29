@@ -12,10 +12,12 @@ df1['key'] = df1['key'].str.replace(' COUNTY', '')
 print(df1)
 # merge on the new key
 merged = df0.merge(df1, left_on='key', right_on='key')
+outer = df0.merge(df1, how='outer', left_on='key', right_on='key')
+outer.to_csv('docs/output/outer.csv')
 # select only the columns we need
 merged = merged[['COUNTYNS', 'county', 'reporting_code', 'rate']]
 # rename columnss
 merged.columns = [['jurisdiction_place_id',
                    'county', 'reporting_code', 'rate']]
 # output to csv
-merged.to_csv('docs/output/ny_city_rates_merged.csv', index=False)
+merged.to_csv('docs/output/ny_county_rates_merged.csv', index=False)
