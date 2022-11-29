@@ -1,6 +1,8 @@
 import pandas as pd
 import tabula
 class NYRatePDF2CSV(object):
+    def __init__(self, pdf_file_path) -> None:
+        pass
     def convert_rate(rate):
         result = rate
         # eg 81/8 (8 + (1/2))/100 rounded to 5 decimal places
